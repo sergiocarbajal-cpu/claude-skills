@@ -5,8 +5,9 @@ description: >
   Gestiona candidatos desde múltiples fuentes (Gmail, Google Drive, PDF directo,
   LinkedIn/HireWatchers pegado manualmente), evalúa con scoring estructurado 1–5
   en 5 dimensiones, genera guiones personalizados de entrevista, analiza
-  transcripciones post-entrevista (Granola u otras), y produce un informe final
-  en PDF guardado en Google Drive. Resultados centralizados en Notion.
+  transcripciones post-entrevista (TAM-OS vía Zoom/ElevenLabs, Granola u otras),
+  y produce un informe final en PDF guardado en Google Drive.
+  Resultados centralizados en Notion.
 
   ACTIVAR SIEMPRE cuando el usuario mencione: 'proceso de selección', 'candidatos',
   'entrevistar a', 'screening de CVs', 'analizar candidatura', 'preparar entrevista',
@@ -15,12 +16,22 @@ description: >
   También activar cuando describa una búsqueda de talento, headhunting, o selección
   de personal para cualquier rol o empresa, aunque no use estos comandos exactos.
 
-version: 1.0.0
+version: 1.1.0
 author: AI FinLabs & The Agile Monkeys
 repo: https://github.com/theam/claude-skills/tree/main/recruiting
+changelog:
+  1.1.0:
+    - $debrief: TAM-OS (Zoom→ElevenLabs) como fuente primaria de transcripciones
+    - $debrief y $prep: contenido guardado en cuerpo de la página del candidato (insert_content), no sub-páginas
+    - $debrief: sección completa de análisis narrativo en Notion (no solo propiedades)
+    - Status workflow post-entrevista documentado (Entrevistado + Fecha Entrevista)
+    - $onboarding Bloque 6: derivación dinámica de red flags y señales positivas desde la JD
+    - $screen, $prep, $debrief: usan señales del proceso cargadas desde Config (no hardcoded)
+    - Red flags universales separados de red flags específicos del proceso
+    - Comparativa multi-candidato en output de $debrief
 ---
 
-# Recruiting Skill v1.0
+# Recruiting Skill v1.1
 
 Skill de reclutamiento estructurado. Cubre el ciclo completo:
 sourcing → screening con scoring → guión de entrevista → análisis post-entrevista → informe final.
@@ -51,7 +62,7 @@ Después ejecuta `$onboarding` para configurar tu primer proceso.
 | Comando | Uso |
 |---|---|
 | `$onboarding` | Configura el proceso (primera vez o nuevo rol) |
-| `$screen [nombre]` | Analiza un candidato desde todas las fuentes disponibles |
+| `$screen [nombre] \| [fuente] \| [via]` | Analiza un candidato. `fuente`: Drive/Gmail/Manual. `via`: texto libre (LinkedIn, HireWatchers, referido X…) |
 | `$screen --all` | Procesa todas las candidaturas pendientes de las fuentes configuradas |
 | `$prep [nombre]` | Genera guión personalizado de entrevista |
 | `$debrief [nombre]` | Analiza transcripción post-entrevista y actualiza scoring |
@@ -95,64 +106,180 @@ Al comienzo de cualquier conversación que active esta skill, Claude DEBE:
 7. "¿Dónde guardo los CVs procesados en Google Drive?" → `drive_cvs_folder`
 8. "¿Y los informes finales PDF?" → `drive_reports_folder`
 
-### Bloque 4: Scoring personalizado
+### Bloque 4: Fuente de transcripciones post-entrevista
 
-9. Mostrar los pesos por defecto y preguntar si se ajustan:
+9. "¿Cómo grabáis las entrevistas? Opciones:
+   - **TAM-OS** (Zoom → ElevenLabs → TAM-OS, recomendado si tenéis TAM-OS conectado)
+   - **Granola** (si usáis Granola como notetaker)
+   - **Manual** (el usuario pegará las notas/transcripción directamente)"
+   → `transcript_source`: `tam-os` | `granola` | `manual`
+
+### Bloque 5: Scoring personalizado
+
+10. Mostrar los pesos por defecto y preguntar si se ajustan:
 
 ```
 Dimensión                Peso
 ─────────────────────────────
-Experiencia relevante    25%
+Experiencia relevante    20%
 Skills funcionales       25%
-Fit cultural             20%
+Fit cultural             25%
 Calidad de empresas      15%
 Huella digital           15%
 ```
 
 "¿Quieres ajustar algún peso para este proceso? (deben sumar 100%)"
 
-### Bloque 5: Generar configuración
+### Bloque 6: Señales del proceso — derivadas de la JD
 
-Una vez recopilado todo:
+Este bloque es **automático**: Claude analiza la JD y el contexto del proyecto
+para derivar las señales específicas de este proceso. No son genéricas ni hardcoded.
+
+**Paso 6a — Análisis de la JD**
+
+A partir de la JD y de lo que el usuario ha explicado sobre el proyecto, inferir:
+
+1. **Red flags bloqueantes** (3-5): características que hacen que un candidato NO sea viable
+   para ESTE rol específico, independientemente de sus otras cualidades.
+   - Derivar de: requisitos mínimos de la JD, restricciones del mercado/regulación,
+     necesidades del equipo, etapa de la empresa, idioma del mercado objetivo.
+   - Ejemplos de lógica: "La JD exige español B2C → ausencia de español es bloqueante",
+     "Empresa es fintech regulada → background crypto es riesgo de marca",
+     "Startup seed stage → perfil solo corporativo sin ownership directo es un gap"
+
+2. **Red flags de atención** (3-5): características que no bloquean pero bajan el score
+   y deben confirmarse en entrevista.
+   - Derivar de: gaps frecuentes en el perfil objetivo, diferencias sector/rol,
+     señales de fit cultural débil.
+
+3. **Señales positivas diferenciadores** (4-6): características que hacen que un candidato
+   DESTAQUE por encima de la media para ESTE rol, más allá de los requisitos básicos.
+   - Derivar de: necesidades no explícitas del proyecto, gaps del equipo actual,
+     skills emergentes relevantes para el mercado, señales de founder-mode.
+
+**Paso 6b — Presentar al usuario para validación**
+
+Mostrar las señales derivadas en este formato y pedir confirmación/ajuste:
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚦 SEÑALES DEL PROCESO — [Rol] | [Empresa]
+Derivadas de la JD y contexto del proyecto
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+🔴 RED FLAGS BLOQUEANTES (descartan directamente)
+  · [flag 1] — Motivo: [razón derivada de la JD]
+  · [flag 2] — Motivo: [...]
+  · ...
+
+🟡 RED FLAGS DE ATENCIÓN (confirmar en entrevista)
+  · [flag 1] — Qué testear: [pregunta sugerida]
+  · ...
+
+✅ SEÑALES POSITIVAS DIFERENCIADORES
+  · [señal 1] — Por qué importa: [conexión con las necesidades del proyecto]
+  · ...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+¿Añades, eliminas o ajustas alguna señal antes de empezar el screening?
+```
+
+**Paso 6c — Guardar señales validadas** en la Config de Notion como campo `Señales del proceso`.
+Estas señales se cargarán en contexto al inicio de cada sesión junto con el resto de la Config.
+
+### Bloque 7: Generar configuración
+
+Una vez recopilado y validado todo:
 
 1. **Crear estructura Notion** → ver sección "Estructura Notion"
 2. **Guardar config** → crear página Notion `⚙️ Config: [Rol] — [Empresa]`
-   con todos los parámetros en formato tabla
+   con todos los parámetros en formato tabla, incluyendo las señales del proceso
 3. **Crear carpetas Google Drive** si no existen (`drive_cvs_folder`, `drive_reports_folder`)
 4. **Confirmar al usuario**:
    - Proceso configurado ✓
    - Fuentes activas (Gmail / Drive / Manual)
+   - Fuente de transcripciones: [transcript_source]
    - Link directo a la DB Notion de candidatos
    - Pesos de scoring activos
-5. "Listo. Empieza con `$screen [nombre del primer candidato]`."
+   - N red flags bloqueantes + N de atención + N señales positivas cargadas
+5. "Listo. Empieza con `$screen [nombre del primer candidato] ([fuente])`."
 
 ---
 
 ## $screen — Analizar candidato
 
-**Trigger**: `$screen [nombre]` o `$screen --all`
+**Trigger**: `$screen [nombre] | [fuente] | [via]` o `$screen --all`
 
-### Paso 1: Recopilar información
+**Parámetros**:
+- `fuente` (operacional, no se guarda en Notion): de dónde obtener el CV/perfil
+  - `Drive` → buscar en `drive_source_folder`
+  - `Gmail` → buscar en inbox con `gmail_query` + nombre
+  - `Manual` → el candidato ha sido pegado o subido en la conversación (default si se omite)
+- `via` (se guarda en Notion como "Fuente"): canal por el que llegó el candidato. Texto libre.
+  - Ejemplos: `LinkedIn`, `HireWatchers`, `LinkedIn Jobs`, `referido Chechu`, `email directo`
 
-Recopilar de todas las fuentes disponibles, en este orden:
+**Ejemplos**:
+```
+$screen Santiago Molinari | Drive | LinkedIn
+$screen Ana García | Manual | HireWatchers
+$screen Pedro Ruiz | Gmail | referido Chechu
+$screen Laura Niño | Drive | LinkedIn Jobs
+```
 
-**a) PDF subido en la conversación** → procesar directamente si existe
+### Detección automática de fase
 
+Antes de procesar, Claude determina qué información hay disponible:
+- **CV presente** (PDF/doc subido, Drive, Gmail con adjunto) → **FASE B: Screen completo**
+- **Solo perfil público** (texto o URL de LinkedIn/HireWatchers, sin CV) → **FASE A: Pre-screen**
+
+---
+
+### FASE A — Pre-screen (sin CV)
+
+Para candidatos de LinkedIn o HireWatchers donde no hay CV todavía.
+
+**Paso A1: Recopilar perfil público**
+- Texto/URL pegado en la conversación → analizar el perfil
+- Web search siempre: `"[nombre]" site:linkedin.com`, `"[nombre]" [empresa] [rol keywords]`, `"[nombre]" (podcast OR articulo OR newsletter)`
+
+**Paso A2: Scoring estimado** — mismo framework 5 dimensiones pero marcando score con `~` (estimado).
+Ser conservador: con dudas, puntuar por debajo. Indicar qué dimensiones quedan sin confirmar.
+
+**Paso A3: Output pre-screen**
+```
+⚡ PRE-SCREEN — [Nombre] (sin CV · score estimado)
+Experiencia relevante  ███░░  ~3.0/5
+Skills funcionales     ███░░  ~X.X/5  ← sin confirmar
+...
+SCORE ESTIMADO ········ ~X.X / 5
+Señales clave: [2-3 bullets]
+Sin confirmar sin CV: [gaps clave]
+━━━━━━━━━━━━━━━━━━━━━
+DECISIÓN: PEDIR CV ✓  /  ARCHIVAR ✗
+Razón: [1 línea]
+━━━━━━━━━━━━━━━━━━━━━
+```
+
+**Paso A4: Guardar en Notion**
+- PEDIR CV → Status: `Pendiente CV`, score estimado, nota "Pre-screen — CV solicitado [fecha]"
+- ARCHIVAR → Status: `Archivado`, score estimado, nota de motivo
+
+---
+
+### FASE B — Screen completo (con CV)
+
+Para candidatos con CV disponible (Drive, Gmail, subido en conversación, o recibido tras Fase A).
+Si el candidato ya tiene entrada en Notion de una Fase A previa, actualizar esa fila en lugar de crear una nueva.
+
+**Paso B1: Recopilar información**
+
+**a) PDF/doc subido en la conversación** → procesar directamente si existe
 **b) Gmail** (si `gmail_query` está configurada):
    - Usar Gmail MCP: `search_threads` con `[gmail_query] [nombre]`
    - Extraer CV adjunto o contenido del email
-
 **c) Google Drive** (si `drive_source_folder` está configurada):
-   - Usar Google Drive MCP: `search_files` con nombre del candidato en la carpeta
-   - Leer el CV encontrado
-
-**d) Texto pegado en conversación** → si el usuario ha pegado el perfil
-
-**e) Web search** (siempre, como capa de enriquecimiento):
-   - `"[nombre completo]" site:linkedin.com`
-   - `"[nombre completo]" [empresa actual] [rol keywords]`
-   - `"[nombre completo]" (speaker OR podcast OR articulo OR newsletter)`
-   - Extraer: proyectos públicos, artículos, ponencias, reputación sectorial
+   - Buscar archivos con nombre del candidato en la carpeta fuente
+**d) Texto pegado en conversación** → perfil ya disponible de Fase A
+**e) Web search** (siempre): mismo set de queries que Fase A
 
 ### Paso 2: Scoring
 
@@ -161,7 +288,22 @@ para los criterios exactos de cada nota por dimensión.
 
 Calcular score final = suma(nota_i × peso_i). Redondear a 1 decimal.
 
-**Red flags a documentar siempre** (cualquiera de estos se menciona explícitamente):
+**Uso de las señales del proceso (cargadas desde Config de Notion)**
+
+Al puntuar y redactar el output, aplicar siempre:
+
+- **Red flags bloqueantes** → si el candidato presenta alguno, indicarlo explícitamente
+  en el output y bajar el score de la dimensión correspondiente.
+  Un red flag bloqueante puede justificar directamente "No Avanzar" sin importar el resto.
+
+- **Red flags de atención** → documentar si aparece alguno; marcarlo para
+  confirmar en la entrevista. No bajan automáticamente el score, pero se anotan en Notion.
+
+- **Señales positivas diferenciadores** → si el candidato presenta alguna, destacarlo
+  en el output y reflejarlo en el score de la dimensión correspondiente.
+  Dos o más señales positivas pueden elevar la recomendación de "En Hold" a "Avanzar".
+
+**Red flags universales** (aplican a cualquier proceso independientemente de la JD):
 - Rotación excesiva sin contexto claro (>3 empresas en 2 años)
 - Cargos de gestión sin evidencia de haber ejecutado antes
 - CV sin métricas ni impacto cuantificable
@@ -174,11 +316,11 @@ Calcular score final = suma(nota_i × peso_i). Redondear a 1 decimal.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📋 SCORING — [Nombre] | [Rol]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Experiencia relevante  ████░  3.5/5  (25%)
-Skills funcionales     ████░  4.0/5  (25%)
-Fit cultural           ███░░  3.0/5  (20%)
-Calidad de empresas    ███░░  3.0/5  (15%)
-Huella digital         ██░░░  2.0/5  (15%)
+Experiencia relevante  ████░  3.5/5  (20%)  → X.XX
+Skills funcionales     ████░  4.0/5  (25%)  → X.XX
+Fit cultural           ███░░  3.0/5  (25%)  → X.XX
+Calidad de empresas    ███░░  3.0/5  (15%)  → X.XX
+Huella digital         ██░░░  2.0/5  (15%)  → X.XX
 
 SCORE TOTAL ·············· 3.4 / 5
 
@@ -196,8 +338,11 @@ SCORE TOTAL ·············· 3.4 / 5
 
 ### Paso 4: Guardar en Notion y Google Drive
 
-1. Crear o actualizar la fila del candidato en la Notion DB con todos los campos
-2. Copiar CV a `drive_cvs_folder` con nombre: `YYYYMMDD_apellido_nombre_rol.pdf`
+1. Copiar CV a `drive_cvs_folder` con nombre: `YYYYMMDD_apellido_nombre_rol.pdf`
+   → Guardar el `viewUrl` del archivo copiado
+2. Crear la fila del candidato en la Notion DB con todos los campos, incluyendo:
+   - Campo "Fuente" → valor del parámetro `via` (texto libre; "Otro" si se omite)
+   - Campo "CV en Drive" → `viewUrl` del archivo copiado en el paso anterior
 3. Confirmar con link directo a la fila en Notion
 
 ---
@@ -206,29 +351,46 @@ SCORE TOTAL ·············· 3.4 / 5
 
 **Trigger**: `$prep [nombre]`
 
-### Paso 1: Leer datos del candidato desde Notion
+### Paso 1: Leer datos del candidato
 
-Recuperar: score card, puntos fuertes, red flags, notas del screening.
+- Recuperar ficha de Notion: score card, puntos fuertes, red flags, notas
+- Leer el CV en Drive si hace falta profundizar en detalles
 
 ### Paso 2: Generar guión personalizado
 
-El guión tiene 6 secciones. Consultar `references/interview-guide-template.md`
-para la estructura detallada y los tipos de preguntas de cada sección.
+El guión incluye las siguientes secciones. Consultar `references/interview-guide-template.md`
+para estructura detallada y tipos de pregunta.
+
+**Antes de construir el guión**, cargar desde la Config de Notion:
+- Las señales del proceso (red flags bloqueantes, de atención y positivas)
+- Usarlas para diseñar las preguntas del bloque 3 (Skills profundos) y 4 (Fit cultural/situacional)
+
+**Sección 0 — Contexto antes de llamar** (no es parte de la entrevista)
+- "Lo que ya sabes — no preguntar": hechos del CV que no hay que confirmar
+- "Lo que NO sabes y debes descubrir": los 4-5 puntos clave que la call debe responder
+  (incluir los red flags de atención que apliquen a este candidato)
 
 | Sección | Duración | Objetivo |
 |---|---|---|
-| 1. Apertura y rapport | 5 min | Romper el hielo, contextualizar el proyecto |
-| 2. Motivación y contexto | 10 min | ¿Por qué este proyecto? ¿Por qué ahora? |
-| 3. Competencias clave | 20 min | Preguntas STAR adaptadas al rol y la JD |
-| 4. Exploración de gaps | 10 min | Preguntas directas sobre los red flags del screening |
-| 5. Cultura y encaje | 10 min | Preguntas específicas del proyecto y la empresa |
-| 6. Espacio del candidato | 5 min | Sus preguntas — son el mejor indicador de interés |
+| 1. Apertura | 5 min | Contexto del proyecto en 90 segundos → reacción del candidato |
+| 2. Trayectoria y categoría | 20 min | Sustancia detrás de los logros del CV, pensamiento en términos de behavior change |
+| 3. Skills técnicos profundos | 20 min | Unit economics, AEO/GEO, AI stack, o la dimensión técnica diferencial del rol |
+| 4. Fit cultural y situacional | 15 min | FTE motivation (misional vs pragmática), relocation si aplica, conflictos potenciales |
+| 5. Cierre | 10 min | Sus preguntas + red flags a vigilar + señales positivas a confirmar |
 
-Cada pregunta incluye: objetivo, señales de respuesta 5/5, y señales de alarma.
+Cada sección incluye:
+- Pregunta(s) exacta(s) con el wording recomendado
+- Qué se busca en la respuesta (señal 5/5)
+- Red flags si la respuesta va por mal camino
 
-### Paso 3: Guardar y presentar
+Al final del guión:
+- **Red flags a vigilar** durante la call (bullets concisos)
+- **Señales positivas que confirmarían avanzar** (bullets concisos)
 
-1. Guardar guión en Notion como sub-página dentro de la fila del candidato
+### Paso 3: Guardar en Notion
+
+1. Guardar el guión completo como contenido dentro de la página del candidato en Notion
+   usando `notion-update-page` con comando `insert_content` (no como sub-página separada)
 2. Mostrar el guión completo en la conversación
 3. "¿Quieres ajustar alguna sección antes de la entrevista?"
 
@@ -238,45 +400,85 @@ Cada pregunta incluye: objetivo, señales de respuesta 5/5, y señales de alarma
 
 **Trigger**: `$debrief [nombre]`
 
-**Input** (en orden de preferencia):
-1. **Granola MCP** → buscar la reunión con `query_granola_meetings "[nombre] entrevista"`
-2. **Texto pegado** en la conversación (transcripción o notas del entrevistador)
-3. Si no hay input: pedir al usuario que pegue sus notas o la transcripción
+### Paso 1: Obtener la transcripción
 
-### Análisis a realizar
+En orden de preferencia según `transcript_source` configurado:
 
-1. **Respuestas al guión**: ¿Se respondieron las preguntas clave? ¿Con qué profundidad?
-2. **Resolución de red flags**: ¿Se aclararon los gaps del screening? ¿Cómo?
-3. **Señales culturales**: ¿Qué reveló sobre su forma de trabajar y gestionar la ambigüedad?
-4. **Interés real**: Analizar las preguntas que hizo el candidato — indicador más fiable de motivación
-5. **Coherencia con CV**: ¿Lo que contó coincide con lo que prometía el CV?
-6. **Energía y proactividad**: ¿Fue reactivo o tomó iniciativa durante la conversación?
+**TAM-OS** (si `transcript_source = tam-os`):
+```
+tam_os_search_meetings(
+  mode="specific_meeting",
+  participantName="[nombre candidato]",
+  query="entrevista [nombre] [rol]",
+  since="[fecha aproximada de la call]"
+)
+```
+→ Obtener `meeting.id` del resultado
+→ `mojo_get_meeting_transcript(by="id", meeting_id="[id]", segment_offset=0)`
+→ Leer todos los segmentos del transcript
 
-### Output en conversación
+**Granola** (si `transcript_source = granola`):
+→ `query_granola_meetings("[nombre] entrevista"`
+
+**Manual** (si `transcript_source = manual` o ninguna fuente devuelve resultados):
+→ Pedir al usuario que pegue la transcripción o sus notas
+
+### Paso 2: Cruzar con el guión de $prep y las señales del proceso
+
+Recuperar de Notion:
+- El guión guardado en la página del candidato
+- Las señales del proceso (red flags y positivas) de la Config
+
+Para cada sección del guión, evaluar:
+- ¿Se preguntó? ¿Se respondió? ¿Con qué profundidad?
+- ¿Se resolvieron los red flags de atención identificados en el screening?
+- ¿Se confirmaron o desmintieron las señales positivas esperadas?
+- ¿Apareció algún red flag bloqueante que no estaba en el screening?
+
+### Paso 3: Re-scoring post-entrevista
+
+Re-evaluar las 5 dimensiones con evidencia concreta del transcript.
+Anotar qué cambió vs el screening y por qué.
+
+### Paso 4: Output en conversación
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🎙️ DEBRIEF — [Nombre] | [Fecha]
+📊 DEBRIEF — [Nombre] | [Fecha]
+Screening: [X.X] · Post-entrevista: [Y.Y]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Score pre-entrevista:   [X.X] / 5
-Score post-entrevista:  [Y.Y] / 5
 
-📌 Momentos destacados:
-  · [momento 1]
-  · [momento 2]
+VEREDICTO: [párrafo de 2-3 líneas con el diagnóstico clave]
 
-✅ Red flags resueltos:    [lista o "ninguno"]
-🚨 Red flags confirmados:  [lista o "ninguno"]
+ANÁLISIS POR BLOQUE:
+[Para cada sección del guión de prep: ✅/⚠️/🔴 + qué dijo + qué significa]
 
-🤔 Sus preguntas (análisis de interés):
-  · [interpretación de lo que preguntó]
+SCORING REVISADO:
+[Tabla con score screening vs post-entrevista y delta]
 
-🏁 Recomendación: AVANZAR / NO AVANZAR / PENDIENTE
-   [2-3 líneas de justificación]
+PUNTO(S) CRÍTICO(S): [Si hay algo que bloquea o cambia la decisión]
+
+RECOMENDACIÓN: AVANZAR / NO AVANZAR / PENDIENTE
+SIGUIENTE PASO: [acción concreta]
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-Actualizar en Notion: score post, status, notas del debrief, recomendación, fecha de entrevista.
+### Paso 5: Actualizar Notion
+
+**Propiedades** (via `notion-update-page update_properties`):
+- `Score Post-Entrevista` → nuevo score
+- `Status` → `Entrevistado`
+- `Fecha Entrevista` → fecha de la call
+- `Notas` → síntesis ejecutiva del debrief (máx. 3-4 líneas)
+- `Recomendacion` → actualizar si cambió
+
+**Contenido de la página** (via `notion-update-page insert_content`):
+Añadir al cuerpo de la página del candidato una sección completa `# 📊 Debrief` con:
+- Veredicto
+- Análisis por bloque (texto narrativo, no bullets cortos)
+- Tabla de scoring screening vs post-entrevista
+- Punto(s) crítico(s)
+- Próximo paso
 
 ---
 
@@ -332,6 +534,7 @@ Esto implica:
   por encima del CV de "marca"
 - Siempre contextualizar: un 3/5 en una dimensión puede ser válido si el perfil compensa en otras
 - No quedarse en la primera impresión del CV — profundizar siempre con web search
+- Distinguir entre "conoce el concepto" y "lo ha operado en producción" — especialmente en skills técnicos (unit economics, AEO/GEO, AI automation)
 
 **Ética**
 
@@ -349,12 +552,18 @@ El `$onboarding` crea automáticamente:
 📁 Recruiting: [Rol] — [Empresa]
 ├── ⚙️ Config: [Rol]           ← parámetros del proceso (no editar manualmente)
 ├── 🗃️ Candidatos              ← base de datos principal
-│   └── [Candidato X]
-│       ├── Score Card
-│       ├── Guión de entrevista
-│       └── Debrief
+│   └── [Candidato X]          ← página del candidato
+│       │                         (contenido en el cuerpo de la página)
+│       ├── [Guión de entrevista]  ← sección insertada por $prep
+│       └── [Debrief]             ← sección insertada por $debrief
 └── 📊 Informe Final           ← link al PDF en Google Drive
 ```
+
+**Nota importante sobre el contenido en Notion:**
+El guión de entrevista (`$prep`) y el análisis post-entrevista (`$debrief`) se guardan
+como secciones de contenido markdown **dentro del cuerpo de la página del candidato**,
+no como sub-páginas separadas. Usar `notion-update-page` con comando `insert_content`.
+Esto permite ver toda la información del candidato en una sola página al hacer click en su fila.
 
 Campos de la DB — ver `references/notion-schema.md` para el schema completo en JSON.
 

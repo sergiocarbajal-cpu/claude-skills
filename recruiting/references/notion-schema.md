@@ -12,12 +12,17 @@ Usar este schema como referencia al crear o actualizar registros vía MCP.
 ├── ⚙️ Config: [Rol]                       ← Config del proceso
 ├── 🗃️ Candidatos [DB]                     ← Base de datos principal
 │   ├── [Candidato 1]                      ← Página del candidato
-│   │   ├── 📋 Score Card                  ← Sub-página: output de $screen
-│   │   ├── 📝 Guión de entrevista         ← Sub-página: output de $prep
-│   │   └── 🎙️ Debrief                    ← Sub-página: output de $debrief
+│   │   │   (propiedades en header)
+│   │   ├── # 🎙️ Guión de entrevista       ← Sección en el cuerpo ($prep)
+│   │   └── # 📊 Debrief                   ← Sección en el cuerpo ($debrief)
 │   └── [Candidato N] ...
 └── 📊 Informe Final                       ← Link al PDF en Google Drive
 ```
+
+**Importante**: El guión de entrevista y el debrief se insertan como secciones markdown
+en el **cuerpo de la página del candidato** (no como sub-páginas), usando
+`notion-update-page` con comando `insert_content`. Esto permite ver todo el historial
+del candidato en una sola vista al hacer click en su fila de la DB.
 
 ---
 
@@ -41,6 +46,7 @@ Contiene los parámetros del proceso en formato tabla. No editar manualmente.
 | Peso empresas | [%] | |
 | Peso digital | [%] | |
 | JD | [text/url] | Job description completa |
+| Señales del proceso | [text] | JSON o markdown con red flags bloqueantes, red flags de atención y señales positivas derivadas de la JD. Se genera en $onboarding y se valida con el usuario. Se carga en contexto al inicio de cada sesión. |
 
 ---
 
