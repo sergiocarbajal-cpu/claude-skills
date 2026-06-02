@@ -6,35 +6,57 @@ description: >
   LinkedIn/HireWatchers pegado manualmente), evalúa con scoring estructurado 1–5
   en 5 dimensiones, genera guiones personalizados de entrevista, analiza
   transcripciones post-entrevista (TAM-OS vía Zoom/ElevenLabs, Granola u otras),
-  y produce un informe final en PDF guardado en Google Drive.
-  Resultados centralizados en Notion.
+  genera y evalúa pruebas/business cases, y produce un score final ponderado
+  por etapa. Resultados centralizados en Notion.
 
   ACTIVAR SIEMPRE cuando el usuario mencione: 'proceso de selección', 'candidatos',
   'entrevistar a', 'screening de CVs', 'analizar candidatura', 'preparar entrevista',
-  'valorar candidato', 'ranking de candidatos', 'head of growth candidatos',
-  '$screen', '$prep', '$debrief', '$report', '$onboarding recruiting'.
+  'valorar candidato', 'ranking de candidatos', 'business case candidato',
+  '$screen', '$prep', '$debrief', '$case', '$case-eval', '$score-final',
+  '$report', '$onboarding recruiting'.
   También activar cuando describa una búsqueda de talento, headhunting, o selección
   de personal para cualquier rol o empresa, aunque no use estos comandos exactos.
 
-version: 1.1.0
+version: 1.2.0
 author: AI FinLabs & The Agile Monkeys
-repo: https://github.com/theam/claude-skills/tree/main/recruiting
+repo: https://github.com/sergiocarbajal-cpu/claude-skills/tree/main/recruiting
 changelog:
+  1.2.0:
+    - Nuevo comando $case: genera prueba/business case personalizado por candidato
+    - Nuevo comando $case-eval: analiza entrega y asigna score con rúbrica dinámica
+    - Nuevo comando $score-final: score compuesto ponderado por etapa del proceso
+    - $prep y $debrief: detectan ronda automáticamente (1ª o 2ª entrevista)
+    - Pesos por defecto del score final: screen 0% / debrief-1 30% / case 40% / debrief-2 30%
+    - $onboarding Bloque 7: configuración de pesos del score final por etapa
+    - notion-schema.md: campos Score Case, Fecha Case, Score Entrevista 2, Score Final Compuesto
   1.1.0:
     - $debrief: TAM-OS (Zoom→ElevenLabs) como fuente primaria de transcripciones
-    - $debrief y $prep: contenido guardado en cuerpo de la página del candidato (insert_content), no sub-páginas
-    - $debrief: sección completa de análisis narrativo en Notion (no solo propiedades)
-    - Status workflow post-entrevista documentado (Entrevistado + Fecha Entrevista)
-    - $onboarding Bloque 6: derivación dinámica de red flags y señales positivas desde la JD
-    - $screen, $prep, $debrief: usan señales del proceso cargadas desde Config (no hardcoded)
-    - Red flags universales separados de red flags específicos del proceso
-    - Comparativa multi-candidato en output de $debrief
+    - $debrief y $prep: contenido guardado en cuerpo de la página del candidato
+    - $onboarding: derivación dinámica de red flags y señales positivas desde la JD
+    - $screen, $prep, $debrief: usan señales del proceso cargadas desde Config
 ---
 
-# Recruiting Skill v1.1
+# Recruiting Skill v1.2
 
 Skill de reclutamiento estructurado. Cubre el ciclo completo:
-sourcing → screening con scoring → guión de entrevista → análisis post-entrevista → informe final.
+
+```
+$screen → $prep → [entrevista 1] → $debrief
+                                       ↓
+                                   $case          ← genera prueba personalizada
+                                       ↓
+                             [candidato entrega]
+                                       ↓
+                                 $case-eval       ← analiza y puntúa
+                                       ↓
+                       $prep [ronda 2 auto]        ← guión 2ª entrevista
+                                       ↓
+                             [entrevista 2]
+                                       ↓
+                                 $debrief          ← detecta ronda 2 auto
+                                       ↓
+                               $score-final        ← score compuesto ponderado
+```
 
 Portable entre proyectos y empresas. Se configura en un único comando de onboarding por proceso.
 
@@ -46,7 +68,7 @@ Pega esto en cualquier conversación de Claude con acceso a herramientas:
 
 ```
 Instala la Recruiting Skill desde GitHub. Descarga el archivo en
-https://raw.githubusercontent.com/theam/claude-skills/main/recruiting/SKILL.md
+https://raw.githubusercontent.com/sergiocarbajal-cpu/claude-skills/main/recruiting/SKILL.md
 y guárdalo en /mnt/skills/user/recruiting/SKILL.md
 También descarga las referencias en references/ del mismo repo.
 Confirma cuando esté listo.
@@ -62,10 +84,13 @@ Después ejecuta `$onboarding` para configurar tu primer proceso.
 | Comando | Uso |
 |---|---|
 | `$onboarding` | Configura el proceso (primera vez o nuevo rol) |
-| `$screen [nombre] \| [fuente] \| [via]` | Analiza un candidato. `fuente`: Drive/Gmail/Manual. `via`: texto libre (LinkedIn, HireWatchers, referido X…) |
+| `$screen [nombre] \| [fuente] \| [via]` | Analiza un candidato. `fuente`: Drive/Gmail/Manual. `via`: texto libre (LinkedIn, HireWatchers…) |
 | `$screen --all` | Procesa todas las candidaturas pendientes de las fuentes configuradas |
-| `$prep [nombre]` | Genera guión personalizado de entrevista |
-| `$debrief [nombre]` | Analiza transcripción post-entrevista y actualiza scoring |
+| `$prep [nombre]` | Genera guión personalizado de entrevista (detecta ronda automáticamente) |
+| `$debrief [nombre]` | Analiza transcripción post-entrevista y actualiza scoring (detecta ronda automáticamente) |
+| `$case [nombre]` | Genera prueba / business case personalizado para el candidato |
+| `$case-eval [nombre]` | Analiza la entrega del candidato y asigna score con rúbrica |
+| `$score-final [nombre]` | Calcula el score final ponderado por etapa del proceso |
 | `$report` | Genera informe final con ranking y exporta PDF a Google Drive |
 
 ---
@@ -186,7 +211,31 @@ Derivadas de la JD y contexto del proyecto
 **Paso 6c — Guardar señales validadas** en la Config de Notion como campo `Señales del proceso`.
 Estas señales se cargarán en contexto al inicio de cada sesión junto con el resto de la Config.
 
-### Bloque 7: Generar configuración
+### Bloque 7: Pesos del score final
+
+Después de todos los parámetros anteriores, configurar cómo se pondera el score final:
+
+```
+Etapa                    Peso por defecto
+────────────────────────────────────────
+$screen (criba CV)             0%   ← solo sirve para decidir a quién llamar
+$debrief ronda 1              30%
+$case-eval                    40%
+$debrief ronda 2              30%
+```
+
+"¿Quieres ajustar estos pesos? (las etapas activas deben sumar 100%)
+Si el proceso no incluye case o no hay 2ª entrevista, los pesos
+se redistribuirán automáticamente entre las etapas que existan."
+
+→ `score_weights`: objeto con claves `screen`, `debrief1`, `case`, `debrief2`
+
+**Redistribución automática** cuando faltan etapas:
+- Sin case: debrief1 50% / debrief2 50%
+- Sin 2ª entrevista: debrief1 60% / case 40%
+- Solo 1 entrevista sin case: debrief1 100%
+
+### Bloque 8: Generar configuración
 
 Una vez recopilado y validado todo:
 
@@ -199,7 +248,8 @@ Una vez recopilado y validado todo:
    - Fuentes activas (Gmail / Drive / Manual)
    - Fuente de transcripciones: [transcript_source]
    - Link directo a la DB Notion de candidatos
-   - Pesos de scoring activos
+   - Pesos de scoring por dimensión activos
+   - Pesos del score final por etapa: screen [X]% / debrief1 [X]% / case [X]% / debrief2 [X]%
    - N red flags bloqueantes + N de atención + N señales positivas cargadas
 5. "Listo. Empieza con `$screen [nombre del primer candidato] ([fuente])`."
 
@@ -351,6 +401,12 @@ SCORE TOTAL ·············· 3.4 / 5
 
 **Trigger**: `$prep [nombre]`
 
+**Detección automática de ronda**: Claude consulta Notion para saber en qué punto del proceso está el candidato:
+- Si NO hay `Score Post-Entrevista` → **Ronda 1** (primera entrevista)
+- Si hay `Score Post-Entrevista` pero NO hay `Score Entrevista 2` → **Ronda 2** (segunda entrevista)
+
+El guión de ronda 2 se enfoca en lo que NO quedó claro en la ronda 1 y en validar la entrega del case.
+
 ### Paso 1: Leer datos del candidato
 
 - Recuperar ficha de Notion: score card, puntos fuertes, red flags, notas
@@ -399,6 +455,10 @@ Al final del guión:
 ## $debrief — Análisis post-entrevista
 
 **Trigger**: `$debrief [nombre]`
+
+**Detección automática de ronda**: Claude consulta Notion para determinar qué debrief hacer:
+- Si NO hay `Score Post-Entrevista` → **Debrief ronda 1** → actualiza `Score Post-Entrevista` y `Fecha Entrevista`
+- Si hay `Score Post-Entrevista` → **Debrief ronda 2** → actualiza `Score Entrevista 2` y `Fecha Entrevista 2`
 
 ### Paso 1: Obtener la transcripción
 
@@ -482,7 +542,154 @@ Añadir al cuerpo de la página del candidato una sección completa `# 📊 Debr
 
 ---
 
-## $report — Informe final
+## $case — Generar prueba / business case
+
+**Trigger**: `$case [nombre]`
+**Cuándo usar**: después del primer `$debrief`, para candidatos que avanzan a la siguiente fase.
+
+### Paso 1: Leer contexto
+
+Cargar desde Notion y Config:
+- Ficha del candidato: score card, debrief ronda 1, red flags pendientes, señales positivas a confirmar
+- Señales del proceso (de la Config): qué gaps y fortalezas hay que testear en la práctica
+- JD y contexto del proyecto
+
+### Paso 2: Diseñar la prueba
+
+La prueba se genera cruzando tres ejes:
+
+1. **Skills a demostrar** (de la JD): las competencias core del rol que no pueden evaluarse solo con preguntas
+2. **Gaps del candidato** (del debrief 1): lo que quedó sin confirmar o generó dudas
+3. **Contexto real del proyecto**: el caso se basa en un problema auténtico de la empresa — no genérico
+
+**Formato estándar** (ajustable en la Config):
+- **Pregunta estratégica** (1): cómo abordarías X en este contexto específico — evalúa pensamiento, no ejecución
+- **Ejercicio práctico** (1-2): produce algo concreto (plan, análisis, propuesta, copy, modelo…)
+- **Tiempo estimado**: máx. 3 horas
+- **Entrega**: PDF o doc en Google Drive, o email
+
+**Al generar la prueba**, también generar internamente la **rúbrica de evaluación** (no se muestra al candidato):
+- Qué respuesta/entrega sería un 5/5 (excelente)
+- Qué sería un 3/5 (suficiente pero no excepcional)
+- Qué sería un 1/5 (insuficiente)
+- Para cada parte del ejercicio
+
+### Paso 3: Output en conversación
+
+Mostrar la prueba en formato listo para enviar al candidato (sin la rúbrica).
+Confirmar: "¿Quieres ajustar alguna parte antes de enviarla?"
+
+### Paso 4: Guardar en Notion
+
+- Insertar el texto de la prueba (sin rúbrica) como sección `# 📝 Business Case` en la página del candidato
+- Insertar la rúbrica como sección `# 📊 Rúbrica (interna)` — visible solo para el equipo
+- Actualizar Status → `Case Enviado`
+
+---
+
+## $case-eval — Evaluar entrega del business case
+
+**Trigger**: `$case-eval [nombre]`
+
+**Input** (en orden de preferencia):
+1. PDF/doc subido en la conversación
+2. Archivo en Google Drive (pegar URL o buscar en `drive_cvs_folder`)
+3. Texto pegado directamente
+
+### Paso 1: Leer la rúbrica y la prueba original
+
+Recuperar de la página del candidato en Notion:
+- La prueba enviada (`# 📝 Business Case`)
+- La rúbrica interna (`# 📊 Rúbrica`)
+
+### Paso 2: Evaluar la entrega
+
+Para cada parte del ejercicio:
+- Comparar la respuesta del candidato contra la rúbrica (1-5)
+- Documentar qué hizo bien, qué faltó, qué sorprendió (positiva o negativamente)
+
+Score final del case = media ponderada de las partes (o igual peso si no se especifica).
+
+### Paso 3: Output en conversación
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 CASE EVAL — [Nombre] | [Fecha entrega]
+Score: [X.X] / 5
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+VEREDICTO: [2-3 líneas de diagnóstico]
+
+POR PARTE:
+  [Pregunta estratégica]: X.X/5
+  → [qué dijo, qué faltó, qué sorprendió]
+
+  [Ejercicio práctico]: X.X/5
+  → [ídem]
+
+SEÑALES POSITIVAS CONFIRMADAS: [lista]
+RED FLAGS CONFIRMADOS O NUEVOS: [lista]
+
+RECOMENDACIÓN: AVANZAR A 2ª ENTREVISTA / NO AVANZAR
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### Paso 4: Guardar en Notion
+
+- Insertar análisis completo como sección `# 📊 Evaluación del Case` en la página del candidato
+- Actualizar propiedades: `Score Case`, `Fecha Case`, Status → `Case Evaluado`
+
+---
+
+## $score-final — Score compuesto final
+
+**Trigger**: `$score-final [nombre]`
+**Cuándo usar**: después del segundo `$debrief` (o cuando el proceso de ese candidato está cerrado).
+
+### Paso 1: Leer todos los scores del candidato
+
+Desde Notion:
+- `Score Post-Entrevista` (debrief 1)
+- `Score Case`
+- `Score Entrevista 2` (debrief 2)
+- Pesos configurados en la Config del proceso
+
+### Paso 2: Calcular score final ponderado
+
+```
+Score Final = Σ (score_etapa × peso_etapa) / Σ pesos_etapas_con_dato
+```
+
+Si falta alguna etapa (no se hizo el case, o no hubo 2ª entrevista), redistribuir
+los pesos proporcionalmente entre las etapas disponibles.
+
+### Paso 3: Output en conversación
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏁 SCORE FINAL — [Nombre]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Etapa             Score   Peso   Ponderado
+──────────────────────────────────────────
+Entrevista 1      X.X/5    30%     X.XX
+Business Case     X.X/5    40%     X.XX
+Entrevista 2      X.X/5    30%     X.XX
+──────────────────────────────────────────
+SCORE FINAL  ···············  X.X / 5
+
+RECOMENDACIÓN FINAL: CONTRATAR / SEGUNDA OPCIÓN / NO CONTRATAR
+[2-3 líneas de justificación con los puntos determinantes]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### Paso 4: Actualizar Notion
+
+- `Score Final Compuesto` → valor calculado
+- `Recomendacion` → actualizar si ha cambiado
+- Status → `Decisión Pendiente` o `Oferta` según la recomendación
+
+---
 
 **Trigger**: `$report`
 

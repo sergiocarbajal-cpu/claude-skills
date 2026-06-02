@@ -59,10 +59,15 @@ Contiene los parámetros del proceso en formato tabla. No editar manualmente.
 | **Nombre** | Title | Nombre completo del candidato |
 | Rol | Text | Rol al que aplica |
 | Fuente | Select | LinkedIn · Gmail · HireWatchers · Drive · Referido · Otro |
-| Status | Select | Nuevo · Screening · Entrevista Pendiente · Entrevistado · Oferta · Rechazado · Archivado |
-| Score Screening | Number | Decimal 1.0–5.0. Format: Number |
-| Score Post-Entrevista | Number | Decimal 1.0–5.0. Format: Number |
-| Score Final | Formula | `if(prop("Score Post-Entrevista") > 0, (prop("Score Screening") + prop("Score Post-Entrevista")) / 2, prop("Score Screening"))` |
+| Status | Select | Nuevo · Screening · Pendiente CV · Entrevista Pendiente · Entrevistado · Case Enviado · Case Evaluado · Entrevista 2 Pendiente · Decisión Pendiente · Oferta · Rechazado · Archivado |
+| Score Screening | Number | Decimal 1.0–5.0. Solo para criba — no entra en el score final por defecto |
+| Score Post-Entrevista | Number | Decimal 1.0–5.0. Debrief ronda 1 |
+| Score Case | Number | Decimal 1.0–5.0. Evaluación del business case |
+| Score Entrevista 2 | Number | Decimal 1.0–5.0. Debrief ronda 2 |
+| Score Final Compuesto | Number | Calculado por $score-final con pesos configurados. No es fórmula automática — lo escribe Claude |
+| Fecha Entrevista | Date | Ronda 1 |
+| Fecha Case | Date | Fecha de entrega del business case |
+| Fecha Entrevista 2 | Date | Ronda 2 |
 | Experiencia (dim) | Number | 1–5 |
 | Skills (dim) | Number | 1–5 |
 | Cultura (dim) | Number | 1–5 |
