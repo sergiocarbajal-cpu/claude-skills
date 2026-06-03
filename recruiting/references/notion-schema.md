@@ -47,6 +47,8 @@ Contiene los parámetros del proceso en formato tabla. No editar manualmente.
 | Peso digital | [%] | |
 | JD | [text/url] | Job description completa |
 | Señales del proceso | [text] | JSON o markdown con red flags bloqueantes, red flags de atención y señales positivas derivadas de la JD. Se genera en $onboarding y se valida con el usuario. Se carga en contexto al inicio de cada sesión. |
+| Case Módulo A | [text] | Enunciado del módulo estándar del business case (igual para todos los candidatos del proceso). Se genera en $onboarding Bloque 6 y se reutiliza en cada $case. |
+| Case Módulo A Rúbrica | [text] | Rúbrica interna del Módulo A (no visible al candidato). Usada en $case-eval para evaluar a todos los candidatos con el mismo criterio. |
 
 ---
 
